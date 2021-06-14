@@ -32,6 +32,7 @@ var DryRun *bool
 var StartTs *float64
 var LeanplumOutFilesPath *string
 var LeanplumAPIEndpoint *string
+var TokenType *string
 
 //var AutoConvert *bool
 
@@ -74,7 +75,8 @@ func Init() bool {
 	AccountPasscode = flag.String("p", "", "CleverTap Account Passcode")
 	AccountToken = flag.String("tk", "", "CleverTap Account Token")
 	EvtName = flag.String("evtName", "", "Event name")
-	Type = flag.String("t", "profile", "The type of data, either profile, event, or both, defaults to profile")
+	TokenType = flag.String("tokenType", "", "Token Type [Chrome/Others]")
+	Type = flag.String("t", "profile", "The type of data, either profile, event, or tokens, defaults to profile")
 	Region = flag.String("r", "eu", "The account region, either eu, in, sk,us ,or sg, defaults to eu")
 	DryRun = flag.Bool("dryrun", false, "Do a dry run, process records but do not upload")
 	//AutoConvert = flag.Bool("autoConvert", false, "automatically covert property value type to number for number entries")
@@ -87,8 +89,8 @@ func Init() bool {
 		log.Println("Both Mixpanel secret and CSV file path detected. Only one data source is allowed")
 		return false
 	}
-	if *Type != "profile" && *Type != "event" && *Type != "both" {
-		log.Println("Type can be either profile or event")
+	if *Type != "profile" && *Type != "event" && *Type != "tokens" && *Type != "both" {
+		log.Println("Type can be either profile, event or tokens")
 		return false
 	}
 	if *CSVFilePath != "" && *EvtName == "" && *Type == "event" {
@@ -168,6 +170,14 @@ func Init() bool {
 
 	if *ImportService == "leanplumS3ToCT" && *AccountToken == "" {
 		log.Println("Account token is missing")
+		return false
+	}
+	if *Type == "tokens" && *TokenType == "" {
+		log.Println("Token type is missing - values expected [Chrome, Others]")
+		return false
+	}
+	if *Type == "tokens" && *TokenType == "Chrome" {
+		log.Println("This script currently only works for non chrome type token upload.")
 		return false
 	}
 

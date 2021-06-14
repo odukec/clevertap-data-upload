@@ -95,7 +95,7 @@ func Get() Command {
 		return &uploadRecordsFromLeanplum{}
 	}
 
-	if (*globals.JSONFilePath != "" || *globals.CSVFilePath != "") && (*globals.Type == "profile" || *globals.Type == "event") {
+	if (*globals.JSONFilePath != "" || *globals.CSVFilePath != "") && (*globals.Type == "tokens" || *globals.Type == "profile" || *globals.Type == "event") {
 		return &uploadEventsProfilesFromCSVCommand{}
 	}
 
@@ -178,7 +178,7 @@ func sendDataToCTAPI(payload map[string]interface{}, endpoint string) (string, e
 			log.Println(err)
 			return "", err
 		}
-
+		json.NewEncoder(os.Stdout).Encode(payload)
 		req.Header.Add("Content-Type", "application/json")
 		req.Header.Add("X-CleverTap-Account-Id", *globals.AccountID)
 		req.Header.Add("X-CleverTap-Passcode", *globals.AccountPasscode)

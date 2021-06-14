@@ -98,8 +98,14 @@ var keysLen int
 var tsExists = false
 
 func isIdentity(val string) bool {
-	if val == "identity" || val == "objectId" || val == "FBID" || val == "GPID" {
-		return true
+	if *globals.Type != "tokens" {
+		if val == "identity" || val == "objectId" || val == "FBID" || val == "GPID" {
+			return true
+		}
+	} else {
+		if val == "objectId" {
+			return true
+		}
 	}
 	return false
 }
@@ -131,6 +137,8 @@ func cleanKeys(keys []string) []string {
 func processHeader(keys []string) bool {
 	keys = cleanKeys(keys)
 	identityExists := false
+	tokenIdExists := false
+	tokenTypeExists := false
 
 	for _, val := range keys {
 		if isIdentity(val) {
@@ -139,15 +147,37 @@ func processHeader(keys []string) bool {
 		if val == "ts" {
 			tsExists = true
 		}
+		if val == "id" && *globals.Type == "tokens" {
+			tokenIdExists = true
+		}
+		if val == "type" && *globals.Type == "tokens" {
+			tokenTypeExists = true
+		}
 	}
 	if !identityExists {
-		log.Println("identity, objectID, FBID or GPID should be present")
+		if *globals.Type == "tokens" {
+			log.Println("Tokens can only be uploaded to objectId [CleverTap ID], objectId column should be present")
+		} else {
+			log.Println("identity, objectId, FBID or GPID should be present")
+		}
 		return false
 	}
 
 	if !tsExists {
-		log.Println("ts is missing. It will default to the current timestamp")
+		if *globals.Type == "event" {
+			log.Println("ts is missing. It will default to the current timestamp")
+		}
 	}
+
+	if !tokenIdExists && *globals.Type == "tokens" {
+		log.Println("id [Token] column is missing.")
+		return false
+	}
+	if !tokenTypeExists && *globals.Type == "tokens" {
+		log.Println("type [Token Type] column is missing.")
+		return false
+	}
+
 	keysLen = len(keys)
 	headerKeys = keys
 	return true
@@ -160,10 +190,18 @@ func processCSVUploadLine(vals []string, line string) (interface{}, bool) {
 		return nil, false
 	}
 	record := make(map[string]interface{})
-	if !tsExists {
-		record["ts"] = time.Now().Unix()
+
+	//Only adding ts if non token type upload.
+	if *globals.Type != "tokens" {
+		if !tsExists {
+			record["ts"] = time.Now().Unix()
+		}
 	}
-	record["type"] = *globals.Type
+	if *globals.Type == "tokens" {
+		record["type"] = "token"
+	} else {
+		record["type"] = *globals.Type
+	}
 	if *globals.Type == "event" {
 		record["evtName"] = *globals.EvtName
 	}
@@ -173,7 +211,11 @@ func processCSVUploadLine(vals []string, line string) (interface{}, bool) {
 		key := headerKeys[index]
 		if isIdentity(key) {
 			if ep == "" {
-				log.Println("Identity field is missing.")
+				if *globals.Type != "tokens" {
+					log.Println("Identity field is missing.")
+				} else {
+					log.Println("ObjectID field is missing.")
+				}
 				return nil, false
 			}
 			record[key] = ep
@@ -280,6 +322,7 @@ func processCSVUploadLine(vals []string, line string) (interface{}, bool) {
 				}
 			}
 		}
+
 		_, ok := propertyData[key]
 		if !ok {
 			propertyData[key] = ep
@@ -291,6 +334,9 @@ func processCSVUploadLine(vals []string, line string) (interface{}, bool) {
 	}
 	if *globals.Type == "profile" {
 		record["profileData"] = propertyData
+	}
+	if *globals.Type == "tokens" {
+		record["tokenData"] = propertyData
 	}
 
 	return record, true
